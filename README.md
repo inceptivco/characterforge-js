@@ -2,7 +2,7 @@
 
 AI-powered 3D character generation SDK for web and React Native applications.
 
-[![npm version](https://img.shields.io/npm/v/characterforge.svg)](https://www.npmjs.com/package/characterforge)
+[![npm version](https://img.shields.io/npm/v/characterforge.svg)](https://www.npmjs.com/package/characterforge-js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
