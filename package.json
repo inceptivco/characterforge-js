@@ -1,0 +1,59 @@
+{
+  "name": "characterforge-js",
+  "version": "1.0.0",
+  "description": "AI-powered 3D character generation SDK for web and React Native",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "character",
+    "generation",
+    "ai",
+    "3d",
+    "avatar",
+    "image",
+    "react",
+    "react-native",
+    "typescript"
+  ],
+  "author": "CharacterForge",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inceptivco/ToyForge.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/inceptivco/ToyForge/issues"
+  },
+  "homepage": "https://characterforge.app",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
