@@ -1,6 +1,6 @@
 {
   "name": "characterforge-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered 3D character generation SDK for web and React Native",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
