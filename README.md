@@ -1,53 +1,59 @@
-# CharacterForge SDK
+# CharacterForge JS
 
-AI-powered 3D character generation SDK for web and React Native applications.
+TypeScript SDK for [CharacterForge](https://characterforge.app)—AI-powered stylized 3D character image generation for browsers, Node.js, and React Native.
 
-[![npm version](https://img.shields.io/npm/v/characterforge.svg)](https://www.npmjs.com/package/characterforge-js)
+[![npm version](https://img.shields.io/npm/v/characterforge-js.svg)](https://www.npmjs.com/package/characterforge-js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
-- 🎨 **Generate stylized 3D vinyl toy characters** using AI
-- ⚡ **Zero dependencies** - lightweight and fast
-- 🔄 **Built-in caching** - IndexedDB for web, file system for React Native
-- 🔁 **Automatic retry logic** - with exponential backoff
-- 📱 **Cross-platform** - works on web and React Native
-- 🎯 **TypeScript support** - fully typed for excellent IDE support
-- 🖼️ **Transparent backgrounds** - production-ready PNG images
+- **Character generation** — Configure appearance (gender, skin, hair, clothing, eyes, accessories) and receive a PNG image URL from the CharacterForge API.
+- **No runtime dependencies** — The package itself ships without npm dependencies; it uses `fetch` and platform APIs.
+- **Client-side caching** — IndexedDB on web; file system + metadata storage on React Native (optional peer-style installs).
+- **Retries** — Exponential backoff with jitter for transient failures.
+- **Typed** — Written in TypeScript with exported types for configuration and errors.
+
+## Requirements
+
+- **Node.js** — `>=16` per `package.json`. The client uses the global `fetch` API; use **Node 18+** (or provide a `fetch` polyfill) in Node environments.
+- **Browser** — Modern browsers with `fetch` and IndexedDB for the default web cache.
+- **React Native** — For native caching, install a file-system package and AsyncStorage (see below).
 
 ## Installation
 
 ```bash
-npm install characterforge
+npm install characterforge-js
 ```
 
-### React Native Additional Setup
+### React Native (caching)
 
-For React Native, you'll need to install one of the following file system packages:
+Caching on React Native uses `expo-file-system` *or* `react-native-fs`, plus AsyncStorage for metadata. Install what matches your app:
 
 **Expo:**
+
 ```bash
 npx expo install expo-file-system @react-native-async-storage/async-storage
 ```
 
 **Bare React Native:**
+
 ```bash
 npm install react-native-fs @react-native-async-storage/async-storage
 ```
 
-## Quick Start
+If these are not installed, the SDK falls back to a no-op cache on unsupported environments.
 
-### Web / React
+## Quick start
+
+### Web or Node
 
 ```typescript
-import { createCharacterForgeClient } from 'characterforge';
+import { createCharacterForgeClient } from 'characterforge-js';
 
-// Create a client instance
 const client = createCharacterForgeClient({
-  apiKey: 'your-api-key-here',
+  apiKey: process.env.CHARACTERFORGE_API_KEY!,
 });
 
-// Generate a character
 const imageUrl = await client.generate({
   gender: 'female',
   skinTone: 'medium',
@@ -60,24 +66,22 @@ const imageUrl = await client.generate({
   transparent: true,
 });
 
-// Use the image URL
-console.log('Generated image:', imageUrl);
+console.log(imageUrl);
 ```
 
 ### React Native
 
 ```typescript
-import { createCharacterForgeClient } from 'characterforge';
-import { Image } from 'react-native';
+import { createCharacterForgeClient } from 'characterforge-js';
+import { Image, Button } from 'react-native';
+import React from 'react';
 
-// Create a client instance
 const client = createCharacterForgeClient({
-  apiKey: 'your-api-key-here',
+  apiKey: 'your-api-key',
 });
 
-// In your component
 function MyComponent() {
-  const [imageUrl, setImageUrl] = React.useState(null);
+  const [imageUrl, setImageUrl] = React.useState<string | null>(null);
 
   const generateCharacter = async () => {
     const url = await client.generate({
@@ -97,272 +101,65 @@ function MyComponent() {
   return (
     <>
       <Button title="Generate Character" onPress={generateCharacter} />
-      {imageUrl && <Image source={{ uri: imageUrl }} style={{ width: 300, height: 300 }} />}
+      {imageUrl ? <Image source={{ uri: imageUrl }} style={{ width: 300, height: 300 }} /> : null}
     </>
   );
 }
 ```
 
-## API Reference
+## API
 
 ### `createCharacterForgeClient(config)`
 
-Creates a new SDK client instance.
+Returns a `CharacterForgeClient` instance.
 
-**Parameters:**
+**`CharacterForgeClientConfig`:**
 
-- `config` - Client configuration object
-
-**Configuration Options:**
-
-```typescript
-interface CharacterForgeClientConfig {
-  /** API key for authentication (required) */
-  apiKey: string;
-  
-  /** Base URL for the API (optional, defaults to production) */
-  baseUrl?: string;
-  
-  /** Enable/disable client-side caching (default: true) */
-  cache?: boolean;
-  
-  /** Custom cache manager implementation (optional) */
-  cacheManager?: CacheManager;
-  
-  /** Request timeout in milliseconds (default: 60000) */
-  timeout?: number;
-  
-  /** Retry configuration (optional) */
-  retry?: {
-    maxRetries: number;      // default: 3
-    baseDelayMs: number;     // default: 1000
-    maxDelayMs: number;      // default: 10000
-  };
-}
-```
-
-**Returns:** `CharacterForgeClient` instance
+| Option | Description |
+| --- | --- |
+| `apiKey` | **Required.** API key from CharacterForge. |
+| `baseUrl` | Optional. API base URL (must expose `POST .../generate-character`). Defaults to the production CharacterForge backend. |
+| `cache` | Enable client cache (default: `true`). |
+| `cacheManager` | Optional custom `CacheManager` implementation. |
+| `timeout` | Request timeout in ms (default: `60000`). |
+| `retry` | `{ maxRetries, baseDelayMs, maxDelayMs }` — defaults: `3`, `1000`, `10000`. |
 
 ### `client.generate(config, onStatusUpdate?)`
 
-Generates a character image based on the provided configuration.
+- **`config`** — `CharacterConfig` (see types in the package or below).
+- **`onStatusUpdate`** — Optional `(status: string) => void` for messages such as `"Calling AI Cloud..."`, `"Caching result..."`, `"Retrieved from Client Cache!"`.
 
-**Parameters:**
-
-- `config` - Character configuration object
-- `onStatusUpdate` (optional) - Callback function for status updates
-
-**Character Configuration:**
-
-```typescript
-interface CharacterConfig {
-  /** Gender: 'male' | 'female' */
-  gender: Gender;
-  
-  /** Age group (optional): 'kid' | 'preteen' | 'teen' | 'young_adult' | 'adult' */
-  ageGroup?: AgeGroupId;
-  
-  /** Skin tone: 'porcelain' | 'fair' | 'light' | 'medium' | 'olive' | 'brown' | 'dark' | 'deep' */
-  skinTone: SkinToneId;
-  
-  /** Hair style: 'bob' | 'ponytail' | 'buns' | 'long' | 'pixie' | 'undercut' | 'quiff' | 'sidepart' | 'buzz' | 'combover' | 'messy' | 'afro' | 'curly' */
-  hairStyle: HairStyleId;
-  
-  /** Hair color: 'black' | 'dark_brown' | 'brown' | 'auburn' | 'ginger' | 'dark_blonde' | 'blonde' | 'platinum' | 'grey' | 'white' | 'blue' | 'purple' */
-  hairColor: HairColorId;
-  
-  /** Clothing: 'tshirt' | 'hoodie' | 'sweater' | 'jacket' | 'tank' | 'dress' | 'blouse' | 'polo' | 'buttonup' | 'henley' */
-  clothing: ClothingItemId;
-  
-  /** Clothing color: 'white' | 'black' | 'navy' | 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'pink' | 'orange' | 'teal' */
-  clothingColor: ClothingColorId;
-  
-  /** Eye color: 'dark' | 'brown' | 'blue' | 'green' | 'hazel' | 'grey' */
-  eyeColor: EyeColorId;
-  
-  /** Accessories: array of 'none' | 'glasses' | 'sunglasses' | 'headphones' | 'cap' | 'beanie' */
-  accessories: AccessoryId[];
-  
-  /** Generate with transparent background (default: true) */
-  transparent: boolean;
-  
-  /** Use caching for this generation (default: true) */
-  cache?: boolean;
-}
-```
-
-**Returns:** `Promise<string>` - URL to the generated image
-
-**Example with status updates:**
-
-```typescript
-const imageUrl = await client.generate(
-  {
-    gender: 'female',
-    skinTone: 'medium',
-    hairStyle: 'bob',
-    hairColor: 'brown',
-    clothing: 'hoodie',
-    clothingColor: 'blue',
-    eyeColor: 'brown',
-    accessories: ['glasses'],
-    transparent: true,
-  },
-  (status) => {
-    console.log('Status:', status);
-    // "Calling AI Cloud..."
-    // "Caching result..."
-    // "Retrieved from Client Cache!"
-  }
-);
-```
+Returns `Promise<string>` — URL of the generated image (often a blob URL when cached on web).
 
 ### `client.clearCache()`
 
-Clears all cached images.
+Clears the client-side cache. Returns `Promise<void>`.
 
-**Returns:** `Promise<void>`
+### `client.destroy()`
 
-```typescript
-await client.clearCache();
-```
+Releases resources (e.g. cache manager cleanup). Call when the client is no longer needed.
 
-## Error Handling
+### `VERSION`
 
-The SDK provides specific error classes for different failure scenarios:
+The package exports `VERSION` (string) matching the published SDK version.
 
-```typescript
-import { 
-  AuthenticationError,
-  InsufficientCreditsError,
-  NetworkError,
-  RateLimitError,
-  GenerationError,
-} from 'characterforge';
+## `CharacterConfig` (summary)
 
-try {
-  const imageUrl = await client.generate(config);
-} catch (error) {
-  if (error instanceof AuthenticationError) {
-    console.error('Invalid API key');
-  } else if (error instanceof InsufficientCreditsError) {
-    console.error('Not enough credits. Please purchase more.');
-  } else if (error instanceof NetworkError) {
-    console.error('Network error. Please check your connection.');
-  } else if (error instanceof RateLimitError) {
-    console.error('Rate limited. Please slow down.');
-  } else if (error instanceof GenerationError) {
-    console.error('Generation failed:', error.message);
-  }
-}
-```
+| Field | Notes |
+| --- | --- |
+| `gender` | `'male' \| 'female'` |
+| `ageGroup` | Optional: `'kid' \| 'preteen' \| 'teen' \| 'young_adult' \| 'adult'` |
+| `skinTone` | e.g. `'porcelain'` … `'deep'` (see `SkinToneId` in types) |
+| `hairStyle` | e.g. `'bob'`, `'quiff'`, `'afro'`, … (`HairStyleId`) |
+| `hairColor` | (`HairColorId`) |
+| `clothing` | (`ClothingItemId`) |
+| `clothingColor` | (`ClothingColorId`) |
+| `eyeColor` | (`EyeColorId`) |
+| `accessories` | `AccessoryId[]` — e.g. `'none'`, `'glasses'`, `'cap'` |
+| `transparent` | Whether the image uses a transparent background |
+| `cache` | Optional per-request override for caching |
 
-## Caching
-
-The SDK automatically caches generated images to reduce API calls and improve performance.
-
-### Web Caching
-
-- Uses **IndexedDB** for persistent storage
-- Automatically manages object URLs to prevent memory leaks
-- Configurable cache size (default: 100 images)
-- Auto-expires after 7 days
-- Automatically cleans up old entries
-
-### React Native Caching
-
-- Uses **file system** for image storage
-- Uses **AsyncStorage** for metadata
-- Platform-specific implementations for Expo and bare React Native
-- Same cache size and expiry settings as web
-
-### Disabling Cache
-
-You can disable caching globally or per-request:
-
-```typescript
-// Disable globally
-const client = createCharacterForgeClient({
-  apiKey: 'your-api-key',
-  cache: false,
-});
-
-// Disable per-request
-const imageUrl = await client.generate({
-  ...config,
-  cache: false,
-});
-```
-
-### Custom Cache Manager
-
-For advanced use cases, you can provide a custom cache implementation:
-
-```typescript
-import { CacheManager } from 'characterforge';
-
-class MyCustomCache implements CacheManager {
-  async get(key: string): Promise<string | null> {
-    // Your implementation
-  }
-
-  async set(key: string, data: Blob | string): Promise<string> {
-    // Your implementation
-  }
-
-  async clear(): Promise<void> {
-    // Your implementation
-  }
-}
-
-const client = createCharacterForgeClient({
-  apiKey: 'your-api-key',
-  cacheManager: new MyCustomCache(),
-});
-```
-
-## Advanced Configuration
-
-### Custom Base URL
-
-If you're self-hosting or using a custom endpoint:
-
-```typescript
-const client = createCharacterForgeClient({
-  apiKey: 'your-api-key',
-  baseUrl: 'https://your-custom-domain.com/functions/v1',
-});
-```
-
-### Custom Timeout
-
-Adjust the request timeout (default is 60 seconds):
-
-```typescript
-const client = createCharacterForgeClient({
-  apiKey: 'your-api-key',
-  timeout: 30000, // 30 seconds
-});
-```
-
-### Custom Retry Configuration
-
-Adjust the retry behavior:
-
-```typescript
-const client = createCharacterForgeClient({
-  apiKey: 'your-api-key',
-  retry: {
-    maxRetries: 5,
-    baseDelayMs: 2000,
-    maxDelayMs: 20000,
-  },
-});
-```
-
-## TypeScript Support
-
-The SDK is written in TypeScript and provides full type definitions:
+Import the full unions from `characterforge-js`:
 
 ```typescript
 import type {
@@ -371,96 +168,80 @@ import type {
   Gender,
   SkinToneId,
   HairStyleId,
-  // ... and more
-} from 'characterforge';
+} from 'characterforge-js';
 ```
 
-All types are exported for your convenience, enabling excellent IDE autocomplete and type checking.
+## Errors
 
-## Examples
+The SDK throws typed errors. Common API-related classes (also re-exported from the main entry):
 
-### Complete React Component
+- `AuthenticationError` — Invalid or missing API key.
+- `InsufficientCreditsError` — Not enough credits.
+- `RateLimitError` — HTTP 429 / too many requests.
+- `NetworkError` — Timeouts and network failures.
+- `ApiError` — Other API HTTP errors that participate in retries.
+- `GenerationError` — Generation or response parsing failures.
 
-```tsx
-import React, { useState } from 'react';
-import { createCharacterForgeClient } from 'characterforge';
+`CharacterForgeError` is an **alias** for `GenerationError` (exported from the client module for backward compatibility).
 
+Additional utilities and types live under the same package:
+
+```typescript
+import {
+  AppError,
+  AuthorizationError,
+  ImageProcessingError,
+  ValidationError,
+  ConfigValidationError,
+  CacheError,
+  PaymentError,
+  isAppError,
+  isAuthenticationError,
+  isInsufficientCreditsError,
+  isNetworkError,
+  isRateLimitError,
+  parseError,
+  getUserFriendlyMessage,
+} from 'characterforge-js';
+```
+
+## Caching
+
+- **Web** — `WebCacheManager` uses IndexedDB, caps entries (e.g. 100), and expires old data (e.g. 7 days). Object URLs are managed to reduce leaks.
+- **React Native** — `NativeCacheManager` stores files under a cache directory and keeps metadata in AsyncStorage.
+- **Override** — Pass `cache: false` in client config or per `generate()` call. Implement `CacheManager` for custom storage.
+
+Advanced exports: `createCacheManager`, `WebCacheManager`, `NativeCacheManager`, `isBrowser`, `isReactNative`.
+
+## Advanced configuration
+
+**Custom base URL** (self-hosted or staging):
+
+```typescript
 const client = createCharacterForgeClient({
-  apiKey: process.env.REACT_APP_CHARACTER_FORGE_KEY!,
+  apiKey: 'your-api-key',
+  baseUrl: 'https://your-deployment.example.com/functions/v1',
 });
-
-export function CharacterGenerator() {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const handleGenerate = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const url = await client.generate(
-        {
-          gender: 'female',
-          skinTone: 'medium',
-          hairStyle: 'bob',
-          hairColor: 'brown',
-          clothing: 'hoodie',
-          clothingColor: 'blue',
-          eyeColor: 'brown',
-          accessories: ['glasses'],
-          transparent: true,
-        },
-        (status) => setStatus(status)
-      );
-      
-      setImageUrl(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <button onClick={handleGenerate} disabled={loading}>
-        {loading ? 'Generating...' : 'Generate Character'}
-      </button>
-      
-      {status && <p>Status: {status}</p>}
-      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-      
-      {imageUrl && (
-        <img 
-          src={imageUrl} 
-          alt="Generated character" 
-          style={{ width: 300, height: 300 }}
-        />
-      )}
-    </div>
-  );
-}
 ```
 
-## Getting an API Key
+The client calls `POST ${baseUrl}/generate-character`.
 
-1. Visit [characterforge.app](https://characterforge.app)
-2. Sign up for an account
-3. Navigate to the Developer Dashboard
-4. Create a new API key
-5. Copy your API key and use it in your application
+**Timeout and retries** — Set `timeout` and `retry` on the client config as needed.
 
-**Important:** Keep your API key secret and never commit it to version control. Use environment variables or secure key management systems.
+## Logging
 
-## Support
+For debugging integrations, the package exports `Logger`, `logger`, `sdkLogger`, and types `LogLevel`, `LogEntry`, `LoggerConfig`.
 
-- 📧 Email: support@characterforge.app
-- 🐛 Issues: [GitHub Issues](https://github.com/characterforge/sdk/issues)
-- 📖 Documentation: [characterforge.app/docs](https://characterforge.app/docs)
+## API key
 
-**Note:** This package is published as `characterforge` on npm.
+1. Open [characterforge.app](https://characterforge.app) and sign in.
+2. Use the developer/dashboard area to create an API key.
+3. Keep keys out of source control; use environment variables or your host’s secret storage.
+
+## Repository and issues
+
+- **Repository:** [github.com/inceptivco/ToyForge](https://github.com/inceptivco/ToyForge) (this SDK lives under the `sdk` directory in that monorepo).
+- **Issues:** [github.com/inceptivco/ToyForge/issues](https://github.com/inceptivco/ToyForge/issues)
 
 ## License
 
@@ -468,5 +249,4 @@ MIT © CharacterForge
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
+Contributions are welcome via pull requests against the repository above.
